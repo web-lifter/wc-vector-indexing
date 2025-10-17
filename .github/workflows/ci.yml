@@ -1,0 +1,203 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  phpcs:
+    name: PHPCS (Coding Standards)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer
+          extensions: sodium, intl, mbstring, xml, curl, json
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run PHPCS
+        run: |
+          if [ -f phpcs.xml ] || [ -f phpcs.xml.dist ]; then
+            vendor/bin/phpcs -s
+          else
+            # Fallback to WordPress standards if config not present yet
+            vendor/bin/phpcs -s --standard=WordPress --extensions=php .
+          fi
+
+  phpstan:
+    name: PHPStan (Static Analysis)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer
+          extensions: sodium, intl, mbstring, xml, curl, json
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run PHPStan
+        run: |
+          if [ -f phpstan.neon ] || [ -f phpstan.neon.dist ]; then
+            vendor/bin/phpstan analyse
+          else
+            # Fallback level if config not present yet
+            vendor/bin/phpstan analyse --level=5 .
+          fi
+
+  phpunit:
+    name: PHPUnit (Matrix)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ '8.1', '8.2', '8.3' ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer
+          extensions: sodium, intl, mbstring, xml, curl, json
+          ini-values: memory_limit=512M
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-php${{ matrix.php }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-php${{ matrix.php }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run PHPUnit
+        env:
+          WP_ENVIRONMENT_TYPE: development
+        run: |
+          if [ -f phpunit.xml ] || [ -f phpunit.xml.dist ]; then
+            vendor/bin/phpunit
+          else
+            # Minimal fallback if config not present yet
+            vendor/bin/phpunit --testdox
+          fi
+
+  build-zip:
+    name: Build Plugin ZIP
+    runs-on: ubuntu-latest
+    needs: [ phpcs, phpstan, phpunit ]
+    env:
+      PLUGIN_SLUG: wc-vector-indexing
+      BUILD_DIR: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP (for composer install --no-dev)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer
+          extensions: sodium, intl, mbstring, xml, curl, json
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-prod-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-prod-
+
+      - name: Install production dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Prepare build directory
+        run: |
+          rm -rf "${BUILD_DIR}"
+          mkdir -p "${BUILD_DIR}/${PLUGIN_SLUG}"
+
+          # Copy everything into the build folder while excluding CI & dev files
+          rsync -av . "${BUILD_DIR}/${PLUGIN_SLUG}" \
+            --delete \
+            --exclude ".git" \
+            --exclude ".github" \
+            --exclude "${BUILD_DIR}" \
+            --exclude "node_modules" \
+            --exclude ".editorconfig" \
+            --exclude ".gitattributes" \
+            --exclude ".gitignore" \
+            --exclude "phpcs.xml" \
+            --exclude "phpcs.xml.dist" \
+            --exclude "phpstan.neon" \
+            --exclude "phpstan.neon.dist" \
+            --exclude "phpunit.xml" \
+            --exclude "phpunit.xml.dist" \
+            --exclude "tests" \
+            --exclude "docs" \
+            --exclude ".env*" \
+            --exclude "vendor-bin"
+
+      - name: Create ZIP
+        working-directory: ${{ env.BUILD_DIR }}
+        run: |
+          ZIP_NAME="${PLUGIN_SLUG}-${GITHUB_REF_NAME//\//-}-${GITHUB_RUN_NUMBER}.zip"
+          zip -r "${ZIP_NAME}" "${PLUGIN_SLUG}"
+          echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PLUGIN_SLUG }}-zip
+          path: ${{ env.BUILD_DIR }}/${{ env.ZIP_NAME }}
+          if-no-files-found: error

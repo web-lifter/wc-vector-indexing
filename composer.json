@@ -1,0 +1,20 @@
+{
+  "name": "web-lifter/wc-vector-indexing",
+  "description": "WooCommerce Vector Indexing (Pinecone + OpenAI Vector Store)",
+  "type": "wordpress-plugin",
+  "license": "MIT",
+  "require": {
+    "php": ">=8.1",
+    "paragonie/sodium_compat": "^1.20"
+  },
+  "autoload": {
+    "psr-4": {
+      "WCVec\\": "includes/"
+    }
+  },
+  "config": {
+    "sort-packages": true
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}
