@@ -55,9 +55,6 @@ class Admin
         require_once WC_VEC_DIR . 'admin/pages/class-admin-page-advanced.php';
         $this->pages['advanced'] = new \WCVec\Admin\Page_Advanced();
 
-        require_once WC_VEC_DIR . 'admin/pages/class-admin-page-advanced.php';
-        $this->pages['advanced'] = new \WCVec\Admin\Page_Advanced();
-
         add_action('admin_menu', [$this, 'register_menu'], 60);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
     }

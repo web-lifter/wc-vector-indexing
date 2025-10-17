@@ -36,20 +36,6 @@ final class Lifecycle
         Job_Index_Product::enqueue($post_ID, false, 0);
     }
 
-    public function on_save_variation(int $post_ID, \WP_Post $post, bool $update): void
-    {
-        if ($this->skip($post)) return;
-
-        // Index the variation itself
-        Job_Index_Product::enqueue($post_ID, false, 0);
-
-        // Also index parent product to refresh collapsed fields if needed
-        $parent_id = (int) $post->post_parent;
-        if ($parent_id > 0) {
-            Job_Index_Product::enqueue($parent_id, false, 30); // slight delay
-        }
-    }
-
     public function on_transition_status(string $new_status, string $old_status, \WP_Post $post): void
     {
         if ($post->post_type !== 'product' && $post->post_type !== 'product_variation') return;

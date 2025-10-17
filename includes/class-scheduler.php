@@ -246,30 +246,7 @@ final class Scheduler
         }
         return $schedules;
     }
-
-    /**
-     * Basic metrics placeholder; expanded in P6.4.
-     */
-    public static function get_metrics(): array
-    {
-        $next = null;
-        if (function_exists('as_has_scheduled_action') && function_exists('as_next_scheduled_action')) {
-            $ts = as_next_scheduled_action(self::ACTION_SCAN, [], self::GROUP);
-            $next = $ts ? gmdate('c', $ts) : null;
-        } else {
-            $ts = wp_next_scheduled(self::CRON_HOOK);
-            $next = $ts ? gmdate('c', $ts) : null;
-        }
-
-        return [
-            'last_scan' => Options::get_last_scan_gmt() ?: null,
-            'next_scan' => $next,
-            'pending'   => null, // filled in P6.4
-            'in_progress' => null,
-            'failed'    => null,
-        ];
-    }
-
+    
     public static function requeue_errors(): void
     {
         $limit = 1000;

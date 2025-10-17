@@ -5,7 +5,6 @@ defined('ABSPATH') || exit;
 
 final class Plugin
 {
-    private static ?Plugin $instance = null;
     public const DB_VERSION = 1;
 
     /** @var Plugin|null */
