@@ -1,6 +1,13 @@
 <?php
 namespace WCVec;
 
+use WCVec\Admin\Admin_Page_About;
+use WCVec\Admin\Admin_Page_Connections;
+use WCVec\Admin\Admin_Page_Fields;
+use WCVec\Admin\Page_Advanced;
+use WCVec\Admin\Page_Logs;
+use WCVec\Admin\Page_Sync;
+use WCVec\Admin\Products_Actions;
 use WCVec\Nonces;
 
 defined('ABSPATH') || exit;
@@ -8,10 +15,10 @@ defined('ABSPATH') || exit;
 class Admin
 {
     /** @var string Slug for our top-level page (as a WooCommerce submenu). */
-    private $menu_slug = 'wcvec';
+    private string $menu_slug = 'wcvec';
 
-    /** @var array */
-    private $tabs = [
+    /** @var array<string, string> */
+    private array $tabs = [
         'connections' => 'Connections',
         'fields'      => 'Fields',
         'sync'        => 'Sync',
@@ -20,40 +27,33 @@ class Admin
         'about'       => 'About',
     ];
 
-    /** @var \WCVec\Admin\Admin_Page_Connections */
-    private $connections_page;
+    /** @var array<string, object> */
+    private array $pages = [];
 
-    /** @var \WCVec\Admin\Admin_Page_About */
-    private $about_page;
-
-    /** @var \WCVec\Admin\Admin_Page_Fields */
-    private $fields_page;
-
-    /** @var \WCVec\Admin\Page_Logs */
-    private $logs_page;
+    private Products_Actions $products_actions;
 
     public function __construct()
     {
         require_once WC_VEC_DIR . 'admin/pages/class-admin-page-connections.php';
-        $this->connections_page = new \WCVec\Admin\Admin_Page_Connections();
-
-        require_once WC_VEC_DIR . 'admin/pages/class-admin-page-about.php';
-        $this->about_page = new \WCVec\Admin\Admin_Page_About();
+        $this->pages['connections'] = new Admin_Page_Connections();
 
         require_once WC_VEC_DIR . 'admin/pages/class-admin-page-fields.php';
-        $this->fields_page = new \WCVec\Admin\Admin_Page_Fields();
+        $this->pages['fields'] = new Admin_Page_Fields();
 
-        require_once WC_VEC_DIR . 'admin/pages/class-admin-page-logs.php';
-        $this->pages['logs'] = new \WCVec\Admin\Page_Logs();
+        require_once WC_VEC_DIR . 'admin/pages/class-admin-page-about.php';
+        $this->pages['about'] = new Admin_Page_About();
 
         require_once WC_VEC_DIR . 'admin/pages/class-admin-page-sync.php';
-        $this->pages['sync'] = new \WCVec\Admin\Page_Sync();
+        $this->pages['sync'] = new Page_Sync();
 
-        require_once WC_VEC_DIR . 'admin/class-products-actions.php';
-        $this->products_actions = new \WCVec\Admin\Products_Actions();
+        require_once WC_VEC_DIR . 'admin/pages/class-admin-page-logs.php';
+        $this->pages['logs'] = new Page_Logs();
 
         require_once WC_VEC_DIR . 'admin/pages/class-admin-page-advanced.php';
-        $this->pages['advanced'] = new \WCVec\Admin\Page_Advanced();
+        $this->pages['advanced'] = new Page_Advanced();
+
+        require_once WC_VEC_DIR . 'includes/class-product-actions.php';
+        $this->products_actions = new Products_Actions();
 
         add_action('admin_menu', [$this, 'register_menu'], 60);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
@@ -148,23 +148,12 @@ class Admin
 
     private function render_tab_content(string $tab): void
     {
-        switch ($tab) {
-            case 'connections':
-                $this->connections_page->render();
-                break;
-            case 'about':
-                $this->about_page->render();
-                break;
-            case 'fields':
-                $this->fields_page->render();
-                break;
-            case 'sync':
-            case 'logs':
-            case 'advanced':
-            default:
-                $this->render_coming_soon($tab);
-                break;
+        if (isset($this->pages[$tab])) {
+            $this->pages[$tab]->render();
+            return;
         }
+
+        $this->render_coming_soon($tab);
     }
 
     private function render_coming_soon(string $tab): void

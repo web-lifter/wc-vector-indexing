@@ -48,10 +48,6 @@ final class Plugin
         require_once WC_VEC_DIR . 'includes/class-events.php';
 
         if (is_admin()) {
-            require_once WC_VEC_DIR . 'admin/pages/class-admin-page-advanced.php';
-        }
-
-        if (is_admin()) {
             require_once WC_VEC_DIR . 'includes/class-admin.php';
             $this->admin = new Admin();
             $this->lifecycle = new \WCVec\Lifecycle();
